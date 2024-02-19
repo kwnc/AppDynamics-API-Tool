@@ -1,9 +1,11 @@
 import json
 
 import requests
+from requests.auth import HTTPBasicAuth
 import os
 from dotenv import load_dotenv
 import xmltodict
+
 
 from models.appd_controller_credentials import AppDControllerCredentials
 
@@ -61,8 +63,9 @@ if __name__ == '__main__':
     response_json = pull_data_from_appd(duration_in_minutes=1440)
     print(response_json)
 
-    hec_token = 'ba1ace22-0c61-452a-a135-79b94f64b41e'
-    headers = {'Authorization': 'Splunk ' + hec_token}
+    basic = HTTPBasicAuth('splunk', os.environ.get('SPLUNK_PASSWORD'))
+    body = {
+        "event": "test"
+    }
 
-    # requests.post('https://prd-p-kz2dg.splunkcloud.com:8088/services/collector/event', json=response_json,
-    #               headers=headers)
+    requests.post('https://prd-p-kz2dg.splunkcloud.com:8088/services/collector/event', json=body, auth=basic)

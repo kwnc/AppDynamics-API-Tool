@@ -7,3 +7,4 @@ requests
 setuptools
 urllib3
 xmltodict
+pip-system-certs
