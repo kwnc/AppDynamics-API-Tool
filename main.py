@@ -5,6 +5,7 @@ from requests.auth import HTTPBasicAuth
 import os
 from dotenv import load_dotenv
 import xmltodict
+import shutil
 
 
 from models.appd_controller_credentials import AppDControllerCredentials
@@ -56,16 +57,17 @@ def pull_data_from_appd(duration_in_minutes):
 
     business_transactions_data = pull_business_transactions(url, controller_credentials.headers, duration_in_minutes)
 
-    return json.dumps(business_transactions_data, indent=4)
+    return business_transactions_data
 
 
 if __name__ == '__main__':
     response_json = pull_data_from_appd(duration_in_minutes=1440)
     print(response_json)
 
-    basic = HTTPBasicAuth('splunk', os.environ.get('SPLUNK_PASSWORD'))
-    body = {
-        "event": "test"
-    }
+    with open("/home/ubuntu/AppDynamics-API-Tool/file.txt", "w") as f:
+        f.write(str(response_json))
 
-    requests.post('https://prd-p-kz2dg.splunkcloud.com:8088/services/collector/event', json=body, auth=basic)
+    basic = HTTPBasicAuth('splunk', os.environ.get('SPLUNK_PASSWORD'))
+
+    response = requests.post('https://prd-p-kz2dg.splunkcloud.com:8088/services/collector/raw', json=response_json, auth=basic, verify=False)
+    print(response.text)
