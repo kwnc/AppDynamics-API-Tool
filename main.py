@@ -13,11 +13,24 @@ load_dotenv()
 basic = HTTPBasicAuth('splunk', os.environ.get('SPLUNK_PASSWORD'))
 
 
-def pull_hardware_resources(url, headers, tier_name, duration_in_minutes):
-    params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|CPU|%Busy',
-              'time-range-type': 'BEFORE_NOW',
+def pull_hardware_metrics(url, headers, tier_name, duration_in_minutes):
+    cpu_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|CPU|%Busy', 'time-range-type': 'BEFORE_NOW',
               'duration-in-mins': f'{duration_in_minutes}'}
-    metric_data_response = requests.get(f"{url}/applications/GECO_PRO_FMO/metric-data", params=params, headers=headers)
+    cpu_data_response = requests.get(f"{url}/applications/GECO_PRO_FMO/metric-data", params=cpu_params, headers=headers)
+    memory_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|Memory|Used %', 'time-range-type': 'BEFORE_NOW',
+              'duration-in-mins': f'{duration_in_minutes}'}
+    memory_data_response = requests.get(f"{url}/applications/GECO_PRO_FMO/metric-data", params=memory_params, headers=headers)
+
+    metric_data = {}
+    metric_data['cpu-used'] = xmltodict.parse(cpu_data_response.text)['metric-datas']
+    metric_data['memory-used'] = xmltodict.parse(memory_data_response.text)['metric-datas']
+    return metric_data
+
+
+def pull_business_transaction_load(url, headers, tier_name, bt_name, duration_in_minutes):
+    metric_data_response = requests.get(
+        f"{url}/applications/GECO_PRO_FMO/metric-data?metric-path=Business%20Transaction%20Performance%7CBusiness%20Transactions%7C{tier_name}%7C{bt_name}%7CCalls%20per%20Minute&time-range-type=BEFORE_NOW&duration-in-mins={duration_in_minutes}",
+        headers=headers)
 
     metric_data = xmltodict.parse(metric_data_response.text)['metric-datas']
     return metric_data
@@ -32,6 +45,15 @@ def pull_business_transaction_performance(url, headers, tier_name, bt_name, dura
     return metric_data
 
 
+def pull_business_transaction_errors(url, headers, tier_name, bt_name, duration_in_minutes):
+    metric_data_response = requests.get(
+        f"{url}/applications/GECO_PRO_FMO/metric-data?metric-path=Business%20Transaction%20Performance%7CBusiness%20Transactions%7C{tier_name}%7C{bt_name}%7CErrors%20per%20Minute&time-range-type=BEFORE_NOW&duration-in-mins={duration_in_minutes}",
+        headers=headers)
+
+    metric_data = xmltodict.parse(metric_data_response.text)['metric-datas']
+    return metric_data
+
+
 def pull_nodes_information(url, headers, tier_name):
     tier_nodes_xml = requests.get(f"{url}/applications/GECO_PRO_FMO/tiers/{tier_name}/nodes", headers=headers)
     tier_nodes_dict = xmltodict.parse(tier_nodes_xml.text)['nodes']
@@ -40,7 +62,6 @@ def pull_nodes_information(url, headers, tier_name):
 
 def pull_databases(url, headers):
     databases_xml = requests.get(f"{url}/databases/servers", headers=headers)
-    # databases_dict = xmltodict.parse(databases_xml.text)
     return databases_xml.text
 
 
@@ -50,11 +71,19 @@ def pull_bt_related_metrics(url, headers, duration_in_minutes):
     metric_data = xmltodict.parse(metric_data_response.text)['business-transactions']
     for transaction in metric_data['business-transaction']:
         transaction_name = transaction['name'].replace(r'/', '%2F')
-        transaction['metric-data'] = pull_business_transaction_performance(url=url, headers=headers,
+        transaction['load'] = pull_business_transaction_load(url=url, headers=headers,
                                                                            tier_name=transaction['tierName'],
                                                                            bt_name=transaction_name,
                                                                            duration_in_minutes=duration_in_minutes)
-        transaction['hardware-data'] = pull_hardware_resources(url=url, headers=headers,
+        transaction['average-response-time'] = pull_business_transaction_performance(url=url, headers=headers,
+                                                                           tier_name=transaction['tierName'],
+                                                                           bt_name=transaction_name,
+                                                                           duration_in_minutes=duration_in_minutes)
+        transaction['errors-per-minute'] = pull_business_transaction_errors(url=url, headers=headers,
+                                                                           tier_name=transaction['tierName'],
+                                                                           bt_name=transaction_name,
+                                                                           duration_in_minutes=duration_in_minutes)
+        transaction['hardware-data'] = pull_hardware_metrics(url=url, headers=headers,
                                                                tier_name=transaction['tierName'],
                                                                duration_in_minutes=duration_in_minutes)
         transaction['nodes'] = pull_nodes_information(url=url, headers=headers, tier_name=transaction['tierName'])
