@@ -68,19 +68,22 @@ def pull_app_nodes(url, headers):
 
 def send_app_nodes(app_nodes, destination_url):
     for node in app_nodes:
-        node_json = json.dumps(node)
+        node_dir = {}
+        node_dir['node'] = node
+        node_json = json.dumps(node_dir)
         requests.post(destination_url, json=node_json, auth=basic, verify=False)
 
 
 def pull_all_databases(url):
     databases_xml = requests.get(f"{url}/databases/servers", auth=appd_basic)
-    databases_dict = xmltodict.parse(databases_xml.text)
-    return databases_dict
+    return databases_xml
 
 
 def send_all_databases(databases_dict, destination_url):
     for database in databases_dict:
-        database_json = json.dumps(database)
+        database_dir = {}
+        database_dir['database'] = database
+        database_json = json.dumps(database_dir)
         requests.post(destination_url, json=database_json, auth=basic, verify=False)
 
 
@@ -106,7 +109,9 @@ def pull_bt_related_metrics(url, headers, duration_in_minutes):
         transaction['hardware-data'] = pull_hardware_metrics(url=url, headers=headers,
                                                                tier_name=transaction['tierName'],
                                                                duration_in_minutes=duration_in_minutes)
-        json_transaction = json.dumps(transaction)
+        business_transaction = {}
+        business_transaction['business-transaction'] = transaction
+        json_transaction = json.dumps(business_transaction)
         requests.post(str(os.environ.get('SPLUNK_URL')), json=json_transaction, auth=basic, verify=False)
     return metric_data
 
