@@ -1,5 +1,31 @@
 # Get Default AppD Baseline
-This scripts handle creating the custom, AppD schema, as well as publishing the events with default AppD [Baseline](https://docs.appdynamics.com/appd/23.x/latest/en/application-monitoring/business-transactions/monitor-the-performance-of-business-transactions/dynamic-baselines) chosen for all applications.
+
+The script in main.py handles pulling metrics from AppDynamics 
+
+There are also scripts for creating the custom, AppD schemas, as well as publishing the events with default AppD [Baseline](https://docs.appdynamics.com/appd/23.x/latest/en/application-monitoring/business-transactions/monitor-the-performance-of-business-transactions/dynamic-baselines) chosen for all applications.
+
+----
+## Getting Started
+
+Copy the file .env.example and paste it in the same place.
+Change the name of the duplicate file to .env
+
+Inside .env file change the following environment variables so that it uses secrets from your systems.
+- CONTROLLER_URL
+- API_CLIENT_SECRET
+- BEARER_TOKEN
+- SPLUNK_URL
+- APPLICATION_NAME
+
+Once you change these environment variables turn on the virtual environment
+
+`source .venv/bin/activate`
+
+Once virtual environment activated. Execute the script that pulls metrics from AppDynamics and sends them to Splunk
+
+`python main.py`
+
+
 ----
 ## Publishing Events
 Once the schema has been created, the user can publish events by running the [publish_default_baselines.py](com%2Fappdynamics%2Fpublish_default_baselines.py) script. Details on publishing Custom analytics Events can be found in the official AppD documentation: [Create Event Schema](https://docs.appdynamics.com/appd/23.x/latest/en/extend-appdynamics/appdynamics-apis/analytics-events-api#id-.AnalyticsEventsAPIv23.1-create_schemaCreateEventSchema).
