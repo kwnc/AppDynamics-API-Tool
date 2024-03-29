@@ -16,12 +16,17 @@ appd_basic = HTTPBasicAuth('appd', os.environ.get('APPD_PASSWORD'))
 
 def pull_hardware_metrics(url, headers, tier_name, duration_in_minutes):
     application_name = os.environ.get('APPLICATION_NAME')
-    cpu_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|CPU|%Busy', 'time-range-type': 'BEFORE_NOW',
-              'duration-in-mins': f'{duration_in_minutes}'}
-    cpu_data_response = requests.get(f"{url}/applications/{application_name}/metric-data", params=cpu_params, headers=headers)
-    memory_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|Memory|Used %', 'time-range-type': 'BEFORE_NOW',
-              'duration-in-mins': f'{duration_in_minutes}'}
-    memory_data_response = requests.get(f"{url}/applications/{application_name}/metric-data", params=memory_params, headers=headers)
+    cpu_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|CPU|%Busy',
+                  'time-range-type': 'BEFORE_NOW',
+                  'duration-in-mins': f'{duration_in_minutes}'}
+    cpu_data_response = requests.get(f"{url}/applications/{application_name}/metric-data", params=cpu_params,
+                                     headers=headers)
+    memory_params = {
+        'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|Memory|Used %',
+        'time-range-type': 'BEFORE_NOW',
+        'duration-in-mins': f'{duration_in_minutes}'}
+    memory_data_response = requests.get(f"{url}/applications/{application_name}/metric-data", params=memory_params,
+                                        headers=headers)
 
     metric_data = {}
     metric_data['cpu-used'] = xmltodict.parse(cpu_data_response.text)['metric-datas']
@@ -59,10 +64,22 @@ def pull_business_transaction_errors(url, headers, tier_name, bt_name, duration_
     return metric_data
 
 
-def pull_app_nodes(url, headers):
+def pull_app_nodes(url, headers, duration_in_minutes):
     application_name = os.environ.get('APPLICATION_NAME')
     app_nodes_xml = requests.get(f"{url}/applications/{application_name}/nodes", headers=headers)
     app_nodes_dict = xmltodict.parse(app_nodes_xml.text)['nodes']['node']
+    for app_node in app_nodes_dict:
+        app_node_cpu_response = requests.get(
+            f"{url}/applications/Server%20&%20Infrastructure%20Monitoring/metric-data?metric-path=Application%20Infrastructure%20Performance%7CRoot%7CIndividual%20Nodes%7C{app_node['machineName']}%7CHardware%20Resources%7CCPU%7C%25Busy&time-range-type=BEFORE_NOW&duration-in-mins={duration_in_minutes}",
+            headers=headers)
+        app_node_cpu_xml = xmltodict.parse(app_node_cpu_response.text)['metric-datas']
+        app_node_memory_response = requests.get(
+            f"{url}/applications/Server%20&%20Infrastructure%20Monitoring/metric-data?metric-path=Application%20Infrastructure%20Performance%7CRoot%7CIndividual%20Nodes%7C{app_node['machineName']}%7CHardware%20Resources%7CCPU%7C%25Busy&time-range-type=BEFORE_NOW&duration-in-mins={duration_in_minutes}",
+            headers=headers)
+        app_node_memory_xml = xmltodict.parse(app_node_memory_response.text)['metric-datas']
+        app_node['cpu-busy'] = app_node_cpu_xml
+        app_node['memory-used'] = app_node_memory_xml
+
     return app_nodes_dict
 
 
@@ -95,20 +112,20 @@ def pull_bt_related_metrics(url, headers, duration_in_minutes):
     for transaction in metric_data['business-transaction']:
         transaction_name = transaction['name'].replace(r'/', '%2F')
         transaction['load'] = pull_business_transaction_load(url=url, headers=headers,
-                                                                           tier_name=transaction['tierName'],
-                                                                           bt_name=transaction_name,
-                                                                           duration_in_minutes=duration_in_minutes)
+                                                             tier_name=transaction['tierName'],
+                                                             bt_name=transaction_name,
+                                                             duration_in_minutes=duration_in_minutes)
         transaction['average-response-time'] = pull_business_transaction_performance(url=url, headers=headers,
-                                                                           tier_name=transaction['tierName'],
-                                                                           bt_name=transaction_name,
-                                                                           duration_in_minutes=duration_in_minutes)
+                                                                                     tier_name=transaction['tierName'],
+                                                                                     bt_name=transaction_name,
+                                                                                     duration_in_minutes=duration_in_minutes)
         transaction['errors-per-minute'] = pull_business_transaction_errors(url=url, headers=headers,
-                                                                           tier_name=transaction['tierName'],
-                                                                           bt_name=transaction_name,
-                                                                           duration_in_minutes=duration_in_minutes)
+                                                                            tier_name=transaction['tierName'],
+                                                                            bt_name=transaction_name,
+                                                                            duration_in_minutes=duration_in_minutes)
         transaction['hardware-data'] = pull_hardware_metrics(url=url, headers=headers,
-                                                               tier_name=transaction['tierName'],
-                                                               duration_in_minutes=duration_in_minutes)
+                                                             tier_name=transaction['tierName'],
+                                                             duration_in_minutes=duration_in_minutes)
         business_transaction = {}
         business_transaction['business-transaction'] = transaction
         json_transaction = json.dumps(business_transaction)
@@ -124,7 +141,8 @@ def pull_data_from_appd(duration_in_minutes):
     business_transactions_data = pull_bt_related_metrics(url, controller_credentials.headers, duration_in_minutes)
 
     # Send all Nodes
-    nodes_dict = pull_app_nodes(url=url, headers=controller_credentials.headers)
+    nodes_dict = pull_app_nodes(url=url, headers=controller_credentials.headers,
+                                duration_in_minutes=duration_in_minutes)
     send_app_nodes(app_nodes=nodes_dict, destination_url=str(os.environ.get('SPLUNK_URL')))
 
     # Send all Databases
