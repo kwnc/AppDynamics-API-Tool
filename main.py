@@ -14,6 +14,18 @@ basic = HTTPBasicAuth('splunk', os.environ.get('SPLUNK_PASSWORD'))
 appd_basic = HTTPBasicAuth('appd', os.environ.get('APPD_PASSWORD'))
 
 
+def pull_node_names(url, headers, tier_name):
+    application_name = os.environ.get('APPLICATION_NAME')
+    nodes_response = requests.get(
+        f"{url}/applications/{application_name}/tiers/{tier_name}/nodes", headers=headers)
+    nodes_dict = xmltodict.parse(nodes_response.text)
+    node_names = []
+    for key, value in nodes_dict.items():
+        if key == 'name':
+            node_names.append(f"{value}")
+    return node_names
+
+
 def pull_hardware_metrics(url, headers, tier_name, duration_in_minutes):
     application_name = os.environ.get('APPLICATION_NAME')
     cpu_params = {'metric-path': f'Application Infrastructure Performance|{tier_name}|Hardware Resources|CPU|%Busy',
@@ -126,8 +138,8 @@ def pull_bt_related_metrics(url, headers, duration_in_minutes):
         transaction['hardware-data'] = pull_hardware_metrics(url=url, headers=headers,
                                                              tier_name=transaction['tierName'],
                                                              duration_in_minutes=duration_in_minutes)
-        business_transaction = {}
-        business_transaction['business-transaction'] = transaction
+        transaction['nodes'] = pull_node_names(url=url, headers=headers, tier_name=transaction['tierName'])
+        business_transaction = {'business-transaction': transaction}
         json_transaction = json.dumps(business_transaction)
         requests.post(str(os.environ.get('SPLUNK_URL')), json=json_transaction, auth=basic, verify=False)
     return metric_data
