@@ -158,8 +158,8 @@ def pull_data_from_appd(duration_in_minutes):
     send_app_nodes(app_nodes=nodes_dict, destination_url=str(os.environ.get('SPLUNK_URL')))
 
     # Send all Databases
-    # databases_dict = pull_all_databases(url=url)
-    # send_all_databases(databases_dict=databases_dict, destination_url=str(os.environ.get('SPLUNK_URL')))
+    databases_dict = pull_all_databases(url=url)
+    send_all_databases(databases_dict=databases_dict, destination_url=str(os.environ.get('SPLUNK_URL')))
 
     return business_transactions_data
 
