@@ -105,7 +105,8 @@ def send_app_nodes(app_nodes, destination_url):
 
 def pull_all_databases(url):
     databases_xml = requests.get(f"{url}/databases/servers", auth=appd_basic)
-    return databases_xml
+    databases_dict = xmltodict.parse(databases_xml.text)
+    return databases_dict
 
 
 def send_all_databases(databases_dict, destination_url):
